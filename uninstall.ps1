@@ -1,7 +1,8 @@
 #Requires -RunAsAdministrator
 
 $ErrorActionPreference = 'SilentlyContinue'
-$python     = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+$pythonCmd  = Get-Command python -ErrorAction SilentlyContinue
+$python     = if ($pythonCmd) { $pythonCmd.Source } else { $null }
 $AppDir     = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Path)
 $svcName    = "CatalogoExpressoBypass"
 $hostsPath  = "$env:SystemRoot\System32\drivers\etc\hosts"
