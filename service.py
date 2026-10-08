@@ -88,9 +88,6 @@ class BypassHandler(BaseHTTPRequestHandler):
         if 'CadastraCliente' in self.path:
             log(f'BYPASS CadastraCliente -> "10"')
             self._send(b'10')
-        elif 'Vers2' in self.path:
-            now = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
-            self._send(f'120|139|2||0||{now}|1;0;;0;0|||||||3908280||0|1|||1|0|0|1|'.encode())
         else:
             self._send(proxy_to_real(self.path, 'POST', body, self.headers))
 
