@@ -30,15 +30,21 @@ if ($LASTEXITCODE -ne 0) { Write-Host "[!] pip falhou -- continuando sem pywin32
 
 # -- Hosts file -----------------------------------------------------------------
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
-$hostsContent = Get-Content $hostsPath -Raw
+$hostsLines = [System.Collections.Generic.List[string]](Get-Content $hostsPath)
+$changed = $false
 foreach ($entry in @("127.0.0.1 www.ideia2001.com.br", "127.0.0.1 ideia2001.com.br")) {
     $domain = ($entry -split ' ')[1]
-    if ($hostsContent -notmatch [regex]::Escape($domain)) {
-        Add-Content $hostsPath "`n$entry"
+    $exists = $hostsLines | Where-Object { $_ -match [regex]::Escape($domain) }
+    if (-not $exists) {
+        $hostsLines.Add($entry)
         Write-Host "[+] Hosts: $entry" -ForegroundColor Green
+        $changed = $true
     } else {
         Write-Host "[=] Hosts ja tem: $domain"
     }
+}
+if ($changed) {
+    $hostsLines | Set-Content -Path $hostsPath -Encoding UTF8
 }
 ipconfig /flushdns | Out-Null
 Write-Host "[+] DNS cache limpo"
