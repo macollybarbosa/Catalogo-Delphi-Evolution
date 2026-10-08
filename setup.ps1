@@ -96,6 +96,17 @@ try {
     Write-Host "[?] Servidor pode ainda estar inicializando. Verifique service.log" -ForegroundColor Yellow
 }
 
+# -- Autocadastro (preenchimento automatico do formulario de primeiro acesso) ---
+$autocadScript = Join-Path $AppDir "autocadastro.ps1"
+if (Test-Path $autocadScript) {
+    Write-Host ""
+    Write-Host "[*] Abrindo catalogo e preenchendo cadastro automaticamente..." -ForegroundColor Cyan
+    Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$autocadScript`"" -WindowStyle Normal
+    Write-Host "[+] Autocadastro iniciado em segundo plano" -ForegroundColor Green
+} else {
+    Write-Host "[?] autocadastro.ps1 nao encontrado — abra o catalogo e cadastre manualmente" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "=== Instalacao concluida! ===" -ForegroundColor Cyan
 Write-Host "  Hosts  : www.ideia2001.com.br -> 127.0.0.1"

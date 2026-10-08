@@ -36,8 +36,9 @@ Source: "server.py";      DestDir: "{app}"; Flags: ignoreversion
 Source: "service.py";     DestDir: "{app}"; Flags: ignoreversion
 Source: "setup.ps1";      DestDir: "{app}"; Flags: ignoreversion
 Source: "uninstall.ps1";  DestDir: "{app}"; Flags: ignoreversion
-Source: "start.bat";      DestDir: "{app}"; Flags: ignoreversion
-Source: "README.md";      DestDir: "{app}"; Flags: ignoreversion
+Source: "start.bat";       DestDir: "{app}"; Flags: ignoreversion
+Source: "autocadastro.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "README.md";       DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 ; Executa setup.ps1 (que instala pywin32, serviço, hosts, portproxy)
