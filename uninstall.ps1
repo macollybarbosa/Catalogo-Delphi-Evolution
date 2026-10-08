@@ -1,35 +1,33 @@
 #Requires -RunAsAdministrator
-<#
-.SYNOPSIS
-    Remove todas as modificações feitas pelo setup.ps1
-#>
 
-Write-Host "=== Removendo bypass do Catálogo Direct Evolution ===" -ForegroundColor Yellow
+$ErrorActionPreference = 'SilentlyContinue'
+$python     = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+$AppDir     = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Path)
+$svcName    = "CatalogoExpressoBypass"
+$hostsPath  = "$env:SystemRoot\System32\drivers\etc\hosts"
 
-# Stop server process
-Get-Process python -ErrorAction SilentlyContinue | Where-Object {
-    $_.MainModule.FileName -like "*python*"
-} | Stop-Process -Force -ErrorAction SilentlyContinue
-Write-Host "[+] Processos Python encerrados"
+Write-Host "=== Removendo Catalogo Direct Evolution Bypass ===" -ForegroundColor Yellow
 
-# Remove scheduled task
-Unregister-ScheduledTask -TaskName "CatalogoExpresso-Bypass" -Confirm:$false -ErrorAction SilentlyContinue
-Write-Host "[+] Tarefa agendada removida"
+# Stop & remove Windows Service
+Stop-Service -Name $svcName -Force -ErrorAction SilentlyContinue
+if ($python) { & $python (Join-Path $AppDir "service.py") remove 2>$null | Out-Null }
+
+# Remove Scheduled Task (fallback)
+Unregister-ScheduledTask -TaskName $svcName -Confirm:$false -ErrorAction SilentlyContinue
+
+# Kill server processes
+Get-Process python -ErrorAction SilentlyContinue | ForEach-Object {
+    try { $_.Kill() } catch {}
+}
+Write-Host "[+] Processos encerrados"
 
 # Remove port proxy
 netsh interface portproxy delete v4tov4 listenport=80 listenaddress=127.0.0.1 2>$null | Out-Null
 Write-Host "[+] Port proxy removido"
 
-# Remove firewall rule
-netsh advfirewall firewall delete rule name="CatalogoBypass-80" 2>$null | Out-Null
-
-# Clean hosts file
-$hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
-$lines = Get-Content $hostsPath | Where-Object { $_ -notmatch 'ideia2001\.com\.br' }
-Set-Content $hostsPath $lines
+# Clean hosts
+(Get-Content $hostsPath) -notmatch 'ideia2001\.com\.br' | Set-Content $hostsPath
+ipconfig /flushdns | Out-Null
 Write-Host "[+] Hosts restaurado"
 
-ipconfig /flushdns | Out-Null
-Write-Host "[+] DNS cache limpo"
-
-Write-Host "`n[+] Desinstalação completa." -ForegroundColor Green
+Write-Host "`n[+] Desinstalado com sucesso." -ForegroundColor Green

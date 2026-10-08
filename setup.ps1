@@ -1,94 +1,100 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Setup permanente do bypass para Catálogo Direct Evolution.
-    Executa UMA VEZ como Administrador. O servidor (server.py) pode
-    ser iniciado sem privilégios depois disso.
+    Setup permanente — hosts file + portproxy + Windows Service.
+    Executar UMA VEZ como Administrador (ou via instalar.bat com duplo clique).
 #>
 
 $ErrorActionPreference = 'Stop'
+$AppDir = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Path)
 
-Write-Host "=== Catálogo Direct Evolution - Setup do Bypass ===" -ForegroundColor Cyan
+Write-Host "=== Catálogo Direct Evolution — Setup ===" -ForegroundColor Cyan
 
-# ── 1. Hosts file ──────────────────────────────────────────────────────────────
+# ── Python check ───────────────────────────────────────────────────────────────
+$python = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+if (-not $python) { $python = (Get-Command python3 -ErrorAction SilentlyContinue)?.Source }
+if (-not $python) {
+    Write-Host "[!] Python 3 nao encontrado. Instale em python.org (marque 'Add to PATH')." -ForegroundColor Red
+    exit 1
+}
+Write-Host "[+] Python: $python"
+
+# ── pywin32 ────────────────────────────────────────────────────────────────────
+Write-Host "[*] Instalando pywin32..."
+& $python -m pip install pywin32 --quiet
+if ($LASTEXITCODE -ne 0) { Write-Host "[!] pip falhou — continuando sem pywin32 (modo scheduled task)" -ForegroundColor Yellow }
+
+# ── Hosts file ─────────────────────────────────────────────────────────────────
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
-$entriesToAdd = @(
-    "127.0.0.1 www.ideia2001.com.br",
-    "127.0.0.1 ideia2001.com.br"
-)
-
 $hostsContent = Get-Content $hostsPath -Raw
-foreach ($entry in $entriesToAdd) {
-    if ($hostsContent -notmatch [regex]::Escape($entry.Split(' ')[1])) {
+foreach ($entry in @("127.0.0.1 www.ideia2001.com.br", "127.0.0.1 ideia2001.com.br")) {
+    $domain = ($entry -split ' ')[1]
+    if ($hostsContent -notmatch [regex]::Escape($domain)) {
         Add-Content $hostsPath "`n$entry"
         Write-Host "[+] Hosts: $entry" -ForegroundColor Green
     } else {
-        Write-Host "[=] Hosts já tem: $entry"
+        Write-Host "[=] Hosts ja tem: $domain"
     }
 }
-
-# Flush DNS cache
 ipconfig /flushdns | Out-Null
 Write-Host "[+] DNS cache limpo"
 
-# ── 2. Port proxy 80 -> 8080 ───────────────────────────────────────────────────
-# Remove existing rule first (idempotent)
+# ── Port proxy 80 -> 8080 ──────────────────────────────────────────────────────
 netsh interface portproxy delete v4tov4 listenport=80 listenaddress=127.0.0.1 2>$null | Out-Null
 netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8080 connectaddress=127.0.0.1
 Write-Host "[+] Port proxy: 127.0.0.1:80 -> 8080"
 
-# Allow port 80 inbound on loopback (firewall)
-try {
-    netsh advfirewall firewall delete rule name="CatalogoBypass-80" 2>$null | Out-Null
-    netsh advfirewall firewall add rule name="CatalogoBypass-80" protocol=TCP dir=in localport=80 action=allow | Out-Null
-    Write-Host "[+] Firewall: porta 80 liberada"
-} catch {}
+# ── Windows Service (preferred) ────────────────────────────────────────────────
+$serviceScript = Join-Path $AppDir "service.py"
+$serviceName   = "CatalogoExpressoBypass"
 
-# ── 3. Scheduled Task: auto-start server on login ─────────────────────────────
-$scriptDir  = Split-Path -Parent (Resolve-Path $MyInvocation.MyCommand.Path)
-$serverPath = Join-Path $scriptDir "server.py"
+# Check if pywin32 is available
+$hasPywin32 = & $python -c "import win32serviceutil; print('ok')" 2>$null
+if ($hasPywin32 -eq 'ok') {
+    Write-Host "[*] Instalando Windows Service..."
 
-# Find python
-$pythonCmd = (Get-Command python -ErrorAction SilentlyContinue)?.Source
-if (-not $pythonCmd) {
-    $pythonCmd = (Get-Command python3 -ErrorAction SilentlyContinue)?.Source
+    # Remove existing
+    $existing = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($existing) {
+        Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+        & $python $serviceScript remove 2>$null | Out-Null
+        Start-Sleep -Seconds 1
+    }
+
+    & $python $serviceScript install
+    & sc.exe config $serviceName start= auto | Out-Null
+    Start-Service -Name $serviceName
+    Write-Host "[+] Servico '$serviceName' instalado e iniciado (inicio automatico)" -ForegroundColor Green
+
+} else {
+    # Fallback: Scheduled Task
+    Write-Host "[*] pywin32 indisponivel — usando Scheduled Task como fallback"
+    $serverScript = Join-Path $AppDir "server.py"
+    $action   = New-ScheduledTaskAction -Execute $python -Argument "`"$serverScript`"" -WorkingDirectory $AppDir
+    $trigger  = New-ScheduledTaskTrigger -AtLogOn
+    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 0) -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1)
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest
+    Unregister-ScheduledTask -TaskName $serviceName -Confirm:$false -ErrorAction SilentlyContinue
+    Register-ScheduledTask -TaskName $serviceName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
+    Start-Process $python -ArgumentList "`"$serverScript`"" -WindowStyle Hidden
+    Write-Host "[+] Scheduled Task '$serviceName' registrada e servidor iniciado" -ForegroundColor Green
 }
-if (-not $pythonCmd) {
-    Write-Host "[!] Python não encontrado no PATH. Instale Python 3 antes de continuar." -ForegroundColor Yellow
-    $pythonCmd = "python"
-}
 
-Write-Host "[+] Python: $pythonCmd"
-
-$taskName   = "CatalogoExpresso-Bypass"
-$action     = New-ScheduledTaskAction -Execute $pythonCmd -Argument "`"$serverPath`"" -WorkingDirectory $scriptDir
-$trigger    = New-ScheduledTaskTrigger -AtLogOn
-$settings   = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 0) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-$principal  = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest
-
-Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
-Write-Host "[+] Tarefa agendada: '$taskName' (inicia no login)"
-
-# ── 4. Start server now ────────────────────────────────────────────────────────
-Write-Host "`n[*] Iniciando servidor agora..."
-Start-Process $pythonCmd -ArgumentList "`"$serverPath`"" -WindowStyle Hidden
+# ── Verify ────────────────────────────────────────────────────────────────────
 Start-Sleep -Seconds 2
-
-# Quick connectivity test
 try {
-    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:8080/" -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
-    Write-Host "[+] Servidor respondendo na porta 8080" -ForegroundColor Green
+    $r = Invoke-WebRequest -Uri "http://127.0.0.1:8080/" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+    Write-Host "[+] Servidor respondendo OK na porta 8080" -ForegroundColor Green
 } catch {
-    Write-Host "[?] Servidor pode ainda estar iniciando. Verifique server.log" -ForegroundColor Yellow
+    Write-Host "[?] Servidor pode ainda estar inicializando. Verifique service.log" -ForegroundColor Yellow
 }
 
 Write-Host @"
 
-=== Setup concluído! ===
-  - Hosts: www.ideia2001.com.br -> 127.0.0.1
-  - Proxy: :80 -> :8080
-  - Servidor: inicia automaticamente no login
+=== Instalacao concluida! ===
+  Hosts  : www.ideia2001.com.br -> 127.0.0.1
+  Proxy  : :80 -> :8080
+  Servico: $serviceName (inicio automatico)
 
-Para parar/desinstalar: execute uninstall.ps1 como Admin
+Para desinstalar: execute desinstalar.bat com duplo clique
 "@ -ForegroundColor Cyan
