@@ -15,7 +15,7 @@ import sys
 import os
 
 REAL_SERVER_IP = '189.113.2.50'
-LISTEN_PORT    = 8080
+LISTEN_PORT    = 80
 LISTEN_HOST    = '127.0.0.1'
 
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'server.log')

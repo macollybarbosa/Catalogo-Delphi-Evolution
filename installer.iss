@@ -41,11 +41,11 @@ Source: "autocadastro.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md";       DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-; Executa setup.ps1 (que instala pywin32, serviço, hosts, portproxy)
+; Executa setup.ps1 (que instala pywin32, servico, hosts)
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
     Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\setup.ps1"""; \
-    StatusMsg: "Configurando bypass (hosts, portproxy, serviço Windows)..."; \
-    Flags: runhidden waituntilterminated
+    StatusMsg: "Configurando bypass (aguarde, pode demorar se Python precisar ser instalado)..."; \
+    Flags: waituntilterminated
 
 [UninstallRun]
 ; Executa uninstall.ps1
@@ -55,18 +55,8 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
 
 [Code]
 function InitializeSetup(): Boolean;
-var
-  ResultCode: Integer;
 begin
-  // Verifica se Python está instalado
-  if not Exec('python', '--version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-  begin
-    MsgBox('Python 3 não encontrado!' + #13#10 +
-           'Instale Python 3 em python.org e tente novamente.' + #13#10 +
-           '(Marque "Add Python to PATH" durante a instalação)', mbError, MB_OK);
-    Result := False;
-  end else
-    Result := True;
+  Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

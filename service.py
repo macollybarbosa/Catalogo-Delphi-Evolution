@@ -30,7 +30,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.request, urllib.error, datetime, socket
 
 REAL_SERVER_IP = '189.113.2.50'
-LISTEN_PORT    = 8080
+LISTEN_PORT    = 80
 LISTEN_HOST    = '127.0.0.1'
 
 
