@@ -10,7 +10,7 @@ instalar.bat  ←  duplo clique, aceita UAC, feito
 
 O instalador:
 1. Edita o `hosts` file: `www.ideia2001.com.br → 127.0.0.1`
-2. Configura port proxy: `:80 → :8080` (via netsh)
+2. Configura port proxy: `127.0.0.1:80 → 127.0.0.1:8780` (via netsh)
 3. Instala **Windows Service** `CatalogoExpressoBypass` (início automático, sem login)
 4. Instala `pywin32` via pip se necessário
 
@@ -26,8 +26,8 @@ desinstalar.bat  ←  duplo clique, aceita UAC, feito
 App → www.ideia2001.com.br:80
          ↓ hosts file
       127.0.0.1:80
-         ↓ portproxy
-      127.0.0.1:8080  ←  service.py (Windows Service)
+         ↓ portproxy (netsh)
+      127.0.0.1:8780  ←  service.py (Windows Service)
          ├─ CadastraCliente.asp  →  "10"  (bypass: chave sempre válida)
          ├─ Vers2.asp            →  resposta local com data atual
          └─ tudo mais            →  proxy reverso → 189.113.2.50 (dados reais)
@@ -47,8 +47,8 @@ O catálogo permanece com dados reais e atualizados porque todos os outros endpo
 |---------|-----------|
 | `instalar.bat` | **Instalação — duplo clique** (auto-eleva para Admin) |
 | `desinstalar.bat` | **Desinstalação — duplo clique** (auto-eleva para Admin) |
-| `server.py` | Servidor de bypass standalone (porta 8080) |
-| `service.py` | Wrapper Windows Service para server.py |
+| `server.py` | Servidor de bypass standalone (porta 8780) |
+| `service.py` | Wrapper Windows Service — escuta em `127.0.0.1:8780` |
 | `setup.ps1` | Script de setup chamado por instalar.bat |
 | `uninstall.ps1` | Script de remoção chamado por desinstalar.bat |
 | `installer.iss` | Script Inno Setup para gerar `.exe` installer |

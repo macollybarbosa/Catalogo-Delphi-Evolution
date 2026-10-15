@@ -81,8 +81,9 @@ if ($changed) {
 ipconfig /flushdns | Out-Null
 Write-Host "[+] DNS cache limpo"
 
-# -- Limpar portproxy antigo se existir -----------------------------------------
+# -- Configurar portproxy 127.0.0.1:80 -> 127.0.0.1:8780 -----------------------
 netsh interface portproxy delete v4tov4 listenport=80 listenaddress=127.0.0.1 2>$null | Out-Null
+netsh interface portproxy add v4tov4 listenport=80 listenaddress=127.0.0.1 connectport=8780 connectaddress=127.0.0.1 | Out-Null
 
 # -- Windows Service (preferred) ------------------------------------------------
 $serviceScript = Join-Path $AppDir "service.py"
@@ -120,8 +121,8 @@ if ($hasPywin32 -eq 'ok') {
 # -- Verify ---------------------------------------------------------------------
 Start-Sleep -Seconds 2
 try {
-    $r = Invoke-WebRequest -Uri "http://127.0.0.1:80/" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
-    Write-Host "[+] Servidor respondendo OK na porta 80" -ForegroundColor Green
+    $r = Invoke-WebRequest -Uri "http://127.0.0.1:8780/" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+    Write-Host "[+] Servidor respondendo OK na porta 8780" -ForegroundColor Green
 } catch {
     Write-Host "[?] Servidor pode ainda estar inicializando. Verifique service.log" -ForegroundColor Yellow
 }
@@ -140,6 +141,7 @@ if (Test-Path $autocadScript) {
 Write-Host ""
 Write-Host "=== Instalacao concluida! ===" -ForegroundColor Cyan
 Write-Host "  Hosts  : www.ideia2001.com.br -> 127.0.0.1"
-Write-Host "  Servico: $serviceName na porta 80 (inicio automatico)"
+Write-Host "  Proxy  : 127.0.0.1:80 -> 127.0.0.1:8780 (netsh portproxy)"
+Write-Host "  Servico: $serviceName na porta 8780 (inicio automatico)"
 Write-Host ""
 Write-Host "Para desinstalar: execute desinstalar.bat com duplo clique"
